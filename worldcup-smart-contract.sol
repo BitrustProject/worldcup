@@ -26,11 +26,21 @@ contract  worldcup2018 is owned
     uint  public championTeamId;
     uint  public multiplier;  // it actually meanns:how many teams are posssible champion.
     uint  public worldcupYear = 2018;
-    function worldcup2018
+    uint  public firstRankingTeamId = 21;  //that is German team, who is ranking #1 in FIFA
+    
+    event NEWBET(address sender, uint value, uint teamId);
+    event BONUSSENT(address sender, uint bonus);
+    
+    function worldcup2018() public
     {
         isBetClosed = false;
         championTeamId = 0;
         multiplier = 32;
+    }
+    
+    function () payable public{
+        ///and Qtum sending to contract, will be regarded as betting first Ranking Team
+        betChampionTeam(firstRankingTeamId);
     }
     function betChampionTeam(uint teamId) payable public
     {
@@ -42,9 +52,10 @@ contract  worldcup2018 is owned
         totalAmountForBets += msg.value;
         userBetMultipliedAmountForTeam[teamId][msg.sender] += (msg.value * multiplier);
         totalBetMultipliedAmountForTeam[teamId] += (msg.value * multiplier);
+        NEWBET(msg.sender, msg.value, teamId);
         
     }
-    function setMultiplier (uint newMultiplier) onlyOwner
+    function setMultiplier (uint newMultiplier) public onlyOwner
     {
         require(newMultiplier > 1);
         require(newMultiplier < multiplier);
@@ -54,24 +65,31 @@ contract  worldcup2018 is owned
     {
         isBetClosed = true;
     }
-    function setChampionTeam(uint teamId) onlyOwner
+    function setChampionTeam(uint teamId) public onlyOwner
     {
         require(teamId > 0);
         require(teamId < 33);
         championTeamId = teamId;
     }
-    function claimWin() public  
+    function claimWinBonus()  public
     {
         require(championTeamId > 0);
         uint multipliedAmount = userBetMultipliedAmountForTeam[championTeamId][msg.sender];
         if(multipliedAmount > 0)
         {
             userBetMultipliedAmountForTeam[championTeamId][msg.sender] = 0;
-            uint winAmount = multipliedAmount * totalAmountForBets / totalBetMultipliedAmountForTeam[championTeamId];
-            if(!msg.sender.send(winAmount))
+            uint bonusAmount = multipliedAmount * totalAmountForBets / totalBetMultipliedAmountForTeam[championTeamId];
+            if(!msg.sender.send(bonusAmount))
 			{
+			    //send error, restore it.
                 userBetMultipliedAmountForTeam[championTeamId][msg.sender] = multipliedAmount;
+                
 			}
+			else
+			{
+			    BONUSSENT(msg.sender, bonusAmount);
+			}
+
         }
         
     }
